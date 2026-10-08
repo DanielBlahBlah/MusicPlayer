@@ -6,7 +6,6 @@ C:\Users\mrtuu\Desktop\MusicPlayer\src\MusicPlayer\bin\Debug\net9.0-windows\Musi
 C:\Users\mrtuu\Desktop\MusicPlayer\src\MusicPlayer\obj\Debug\net9.0-windows\MainWindow.g.cs
 C:\Users\mrtuu\Desktop\MusicPlayer\src\MusicPlayer\obj\Debug\net9.0-windows\App.g.cs
 C:\Users\mrtuu\Desktop\MusicPlayer\src\MusicPlayer\obj\Debug\net9.0-windows\MusicPlayer_MarkupCompile.cache
-C:\Users\mrtuu\Desktop\MusicPlayer\src\MusicPlayer\obj\Debug\net9.0-windows\MusicPlayer_MarkupCompile.lref
 C:\Users\mrtuu\Desktop\MusicPlayer\src\MusicPlayer\obj\Debug\net9.0-windows\MainWindow.baml
 C:\Users\mrtuu\Desktop\MusicPlayer\src\MusicPlayer\obj\Debug\net9.0-windows\MusicPlayer.g.resources
 C:\Users\mrtuu\Desktop\MusicPlayer\src\MusicPlayer\obj\Debug\net9.0-windows\MusicPlayer.GeneratedMSBuildEditorConfig.editorconfig
