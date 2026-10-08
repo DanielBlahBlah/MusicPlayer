@@ -1,0 +1,88 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+
+# Visual Studio
+.vs/
+.vscode/
+*.user
+*.userosscache
+*.suo
+*.sln.docstates
+
+# JetBrains
+.idea/
+*.sln.iml
+
+# ReSharper
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings.user
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+.nuget/
+artifacts/
+
+# .NET generated files
+GeneratedFiles/
+TestResults/
+
+# Code coverage
+coverage/
+coverage*.xml
+*.coverage
+*.coveragexml
+
+# Publish output
+publish/
+Publish/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+
+# Local databases
+*.db
+*.db-shm
+*.db-wal
+
+# Local application data
+/cache/
+/data/
+/logs/
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Debugging / profiling
+*.dmp
+*.stackdump
+*.pdb
+
+# Published executables/packages
+*.exe
+*.dll
+*.zip
+*.tar
+*.tar.gz
+*.7z
+*.msix
+*.msixbundle
+*.appx
+*.appxbundle
