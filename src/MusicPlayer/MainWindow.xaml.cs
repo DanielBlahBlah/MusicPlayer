@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System.Collections.ObjectModel;
+using System.IO;
 using System.Text.Json;
 using System.Windows;
 using MusicPlayer.Settings;
@@ -13,11 +14,16 @@ public partial class MainWindow : Window
         "settings.json"
         );
 
+    public ObservableCollection<Album> Albums {get;} = new ObservableCollection<Album>();
+
     public MainWindow()
     {
         InitializeComponent();
         loadWindowSettings();
 
+        DataContext = this;
+
+        LoadMusic(@"C:\Users\mrtuu\Music");
         Closing += mainWindowClosing;
     }
 
@@ -56,6 +62,27 @@ public partial class MainWindow : Window
         {
             WindowStartupLocation = WindowStartupLocation.CenterScreen;
             sidebar.Width = new GridLength(100);
+        }
+    }
+
+    private void LoadMusic(string musicFolder)
+    {
+        if (!Directory.Exists(musicFolder)) return;
+
+        foreach (string folder in Directory.GetDirectories(musicFolder))
+        {
+            var tracks = Directory.GetFiles(folder).Where(file => new[] {".mp3", ".wav",".flac",".m4a",".wma",".aac"}.Contains(Path.GetExtension(file),StringComparer.OrdinalIgnoreCase)).ToList();
+            if (tracks.Count == 0) continue;
+
+            string cover = Directory.GetFiles(folder).FirstOrDefault(file => new[] {".jpg",".jpeg",".png"}.Contains(Path.GetExtension(file), StringComparer.OrdinalIgnoreCase)&& Path.GetFileNameWithoutExtension(file).Equals("cover", StringComparison.OrdinalIgnoreCase))?? "";
+            Albums.Add(new Album
+            {
+                title = Path.GetFileName(folder),
+                artist = "",
+                coverPath = cover,
+                genre = "",
+                tracks = tracks
+            });
         }
     }
 

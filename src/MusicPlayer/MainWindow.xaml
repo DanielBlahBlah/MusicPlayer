@@ -36,7 +36,57 @@
                 </GridSplitter>
 
                 <Grid Grid.Column = "2" Background = "#000000">
-                        <!--main content-->
+                        <ScrollViewer VerticalScrollBarVisibility = "Auto" HorizontalScrollBarVisibility = "Disabled">
+                                <StackPanel Margin = "20">
+                                        <TextBlock Text = "Music"
+                                                FontSize = "28"
+                                                FontWeight = "Bold"
+                                                Foreground = "Black"
+                                                Margin = "0,0,0,20"/>
+                                        <ItemsControl ItemsSource = "{Binding Albums}">
+
+                                                <ItemsControl.ItemsPanel>
+                                                        <ItemsPanelTemplate>
+                                                                <WrapPanel Orientation = "Horizontal"/>
+                                                        </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+
+                                                <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                                <StackPanel Width = "160"
+                                                                        Margin = "0,0,20,24">
+                                                                        <Border Width = "160"
+                                                                                Height = "160"
+                                                                                Background = "Black"
+                                                                                ClipToBounds = "True">
+                                                                                <Image Source = "{Binding coverPath}"
+                                                                                        Stretch = "Uniform"
+                                                                                        RenderOptions.BitmapScalingMode = "HighQuality"
+                                                                                        SnapsToDevicePixels = "True"/>
+                                                                        </Border>
+
+                                                                        <TextBlock Text = "{Binding title}"
+                                                                                Foreground = "White"
+                                                                                FontSize = "14"
+                                                                                FontWeight = "Bold"
+                                                                                Margin = "0,8,0,2"
+                                                                                TextTrimming = "CharacterEllipsis"/>
+
+                                                                        <TextBlock Text = "{Binding artist}"
+                                                                                Foreground = "White"
+                                                                                FontSize = "12"
+                                                                                TextTrimming = "CharacterEllipsis"/>
+
+                                                                        <TextBlock Text = "{Binding genre}"
+                                                                                Foreground = "White"
+                                                                                FontSize = "12"
+                                                                                TextTrimming = "CharacterEllipsis"/>
+                                                                </StackPanel>
+                                                        </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                </StackPanel>
+                        </ScrollViewer>
                 </Grid>
         </Grid>
 </Window>
