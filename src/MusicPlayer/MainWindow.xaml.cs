@@ -10,18 +10,18 @@ public partial class MainWindow : Window
     private readonly string settingsPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "MusicPlayer",
-        "window.json"
+        "settings.json"
         );
 
     public MainWindow()
     {
         InitializeComponent();
-        LoadWindowSettings();
+        loadWindowSettings();
 
-        Closing += MainWindow_Closing;
+        Closing += mainWindowClosing;
     }
 
-    private void LoadWindowSettings()
+    private void loadWindowSettings()
     {
         if (!File.Exists(settingsPath))
         {
@@ -32,7 +32,7 @@ public partial class MainWindow : Window
         try
         {
             var json = File.ReadAllText(settingsPath);
-            var settings = JsonSerializer.Deserialize<WindowSettings>(json);
+            var settings = JsonSerializer.Deserialize<ProjectSettings>(json);
 
             if (settings == null) return;
 
@@ -49,22 +49,26 @@ public partial class MainWindow : Window
                 Left = settings.Left;
                 Top = settings.Top;
             }
+
+            sidebar.Width = new GridLength(settings.sidebarWidth);
         }
         catch
         {
             WindowStartupLocation = WindowStartupLocation.CenterScreen;
+            sidebar.Width = new GridLength(100);
         }
     }
 
-    private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
+    private void mainWindowClosing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
-        var settings = new WindowSettings
+        var settings = new ProjectSettings
         {
             Width = RestoreBounds.Width,
             Height = RestoreBounds.Height,
             Left = RestoreBounds.Left,
             Top = RestoreBounds.Top,
-            IsMaximised = WindowState == WindowState.Maximized
+            IsMaximised = WindowState == WindowState.Maximized,
+            sidebarWidth = sidebar.ActualWidth
         };
 
         var directory = Path.GetDirectoryName(settingsPath)!;
