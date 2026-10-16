@@ -59,7 +59,7 @@
                                                                                 Height = "160"
                                                                                 Background = "Black"
                                                                                 ClipToBounds = "True">
-                                                                                <Image Source = "{Binding coverPath}"
+                                                                                <Image Source = "{Binding artworkPath}"
                                                                                         Stretch = "Uniform"
                                                                                         RenderOptions.BitmapScalingMode = "HighQuality"
                                                                                         SnapsToDevicePixels = "True"/>
@@ -72,7 +72,7 @@
                                                                                 Margin = "0,8,0,2"
                                                                                 TextTrimming = "CharacterEllipsis"/>
 
-                                                                        <TextBlock Text = "{Binding artist}"
+                                                                        <TextBlock Text = "{Binding albumArtist}"
                                                                                 Foreground = "White"
                                                                                 FontSize = "12"
                                                                                 TextTrimming = "CharacterEllipsis"/>

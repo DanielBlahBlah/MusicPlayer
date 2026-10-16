@@ -2,6 +2,10 @@
 using System.IO;
 using System.Text.Json;
 using System.Windows;
+using Microsoft.EntityFrameworkCore;
+using MusicPlayer.LibraryDatabase;
+using MusicPlayer.LibraryObjects;
+using MusicPlayer.LibraryScanner;
 using MusicPlayer.Settings;
 
 namespace MusicPlayer;
@@ -14,6 +18,14 @@ public partial class MainWindow : Window
         "settings.json"
         );
 
+    private string settingsDirectory => Path.GetDirectoryName(settingsPath)!;
+
+    private static readonly string musicFolder = Environment.GetFolderPath(Environment.SpecialFolder.MyMusic);
+
+    private CancellationTokenSource? scanCts;
+
+    private static readonly string[] ignoredWords = ["the ", "a ", "an "];
+
     public ObservableCollection<Album> Albums {get;} = new ObservableCollection<Album>();
 
     public MainWindow()
@@ -23,8 +35,77 @@ public partial class MainWindow : Window
 
         DataContext = this;
 
-        LoadMusic(@"C:\Users\mrtuu\Music");
+        Loaded += mainWindowLoaded;
         Closing += mainWindowClosing;
+    }
+
+    private async void mainWindowLoaded(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            await loadAlbumsAsync();
+
+            await scanLibraryAsync();
+
+            await loadAlbumsAsync();
+        }
+        catch (OperationCanceledException)
+        {
+
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.ToString());
+        }
+    }
+
+    private async Task scanLibraryAsync()
+    {
+        var scanner = new MusicScanner(settingsDirectory);
+        var progress = new Progress<int>(count => Title = $"Scanning... {count}");
+
+        scanCts = new CancellationTokenSource();
+
+        var result = await Task.Run(() => scanner.ScanAsync(musicFolder, progress, scanCts.Token));
+
+        Title = "Music Player";
+
+        MessageBox.Show(
+            $"Found {result.filesFound}, added {result.filesAdded}, updated {result.filesUpdated}, " +
+
+            $"removed {result.filesRemoved}, skipped {result.filesSkipped}\n\n" +
+            string.Join("\n", result.Errors.Take(10)));
+    }
+
+    private async Task loadAlbumsAsync()
+    {
+        await using var db = MusicDatabase.CreateContext(settingsDirectory);
+        await db.Database.EnsureCreatedAsync();
+
+        var albums = await db.albums
+            .AsNoTracking()
+            .ToListAsync();
+
+        var sorted = albums
+            .OrderBy(a => sortKey(a.title), StringComparer.CurrentCultureIgnoreCase);
+
+        Albums.Clear();
+        foreach (var album in sorted) Albums.Add(album);
+    }
+
+    private static string sortKey(string? text)
+    {
+        var value = (text ?? "").Trim();
+
+        foreach (var word in ignoredWords)
+        {
+            if (value.Length > word.Length && value.StartsWith(word, StringComparison.CurrentCultureIgnoreCase))
+            {
+                return value[word.Length..].TrimStart();
+            }
+        }
+
+        return value;
     }
 
     private void loadWindowSettings()
@@ -62,27 +143,6 @@ public partial class MainWindow : Window
         {
             WindowStartupLocation = WindowStartupLocation.CenterScreen;
             sidebar.Width = new GridLength(100);
-        }
-    }
-
-    private void LoadMusic(string musicFolder)
-    {
-        if (!Directory.Exists(musicFolder)) return;
-
-        foreach (string folder in Directory.GetDirectories(musicFolder))
-        {
-            var tracks = Directory.GetFiles(folder).Where(file => new[] {".mp3", ".wav",".flac",".m4a",".wma",".aac"}.Contains(Path.GetExtension(file),StringComparer.OrdinalIgnoreCase)).ToList();
-            if (tracks.Count == 0) continue;
-
-            string cover = Directory.GetFiles(folder).FirstOrDefault(file => new[] {".jpg",".jpeg",".png"}.Contains(Path.GetExtension(file), StringComparer.OrdinalIgnoreCase)&& Path.GetFileNameWithoutExtension(file).Equals("cover", StringComparison.OrdinalIgnoreCase))?? "";
-            Albums.Add(new Album
-            {
-                title = Path.GetFileName(folder),
-                artist = "",
-                coverPath = cover,
-                genre = "",
-                tracks = tracks
-            });
         }
     }
 
