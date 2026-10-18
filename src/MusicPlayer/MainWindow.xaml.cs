@@ -64,17 +64,63 @@ public partial class MainWindow : Window
         var scanner = new MusicScanner(settingsDirectory);
         var progress = new Progress<int>(count => Title = $"Scanning... {count}");
 
+        var albumsChanged = new Progress<IReadOnlyCollection<int>>(async ids =>
+        {
+            try { await showAlbumsAsync(ids);}
+            catch (Exception) {}
+        });
+
         scanCts = new CancellationTokenSource();
 
-        var result = await Task.Run(() => scanner.ScanAsync(musicFolder, progress, scanCts.Token));
+        var result = await Task.Run(() => scanner.ScanAsync(musicFolder, progress, albumsChanged, scanCts.Token));
 
         Title = "Music Player";
 
-        MessageBox.Show(
-            $"Found {result.filesFound}, added {result.filesAdded}, updated {result.filesUpdated}, " +
-
+        MessageBox.Show($"Found {result.filesFound}, added {result.filesAdded}, updated {result.filesUpdated}, "+
             $"removed {result.filesRemoved}, skipped {result.filesSkipped}\n\n" +
             string.Join("\n", result.Errors.Take(10)));
+    }
+
+    private async Task showAlbumsAsync(IReadOnlyCollection<int> ids)
+    {
+        await using var db = MusicDatabase.CreateContext(settingsDirectory);
+
+        var loaded = await db.albums
+            .AsNoTracking()
+            .Where(a => ids.Contains(a.id))
+            .ToListAsync();
+
+        foreach (var album in loaded)
+        {
+            album.thumbnailPath = CoverPaths.Small(settingsDirectory, album.artworkHash);
+            album.mediumPath = CoverPaths.Medium(settingsDirectory, album.artworkHash);
+
+            var index = -1;
+            for (var i = 0; i < Albums.Count; i++)
+            {
+                if (Albums[i].id == album.id) {index = 1; break;}
+            }
+
+            if (index >= 0) Albums[index] = album;
+            else Albums.Insert(sortedIndex(album), album);
+        }
+    }
+
+    private int sortedIndex(Album album)
+    {
+        var key = sortKey(album.title);
+        var low = 0;
+        var high = Albums.Count;
+
+        while (low < high)
+        {
+            var mid = (low + high) / 2;
+
+            if (StringComparer.CurrentCultureIgnoreCase.Compare(sortKey(Albums[mid].title), key) <= 0) low = mid + 1;
+            else high = mid;
+        }
+
+        return low;
     }
 
     private async Task loadAlbumsAsync()

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -13,6 +14,7 @@ public sealed class MusicScanner(string settingsDirectory)
     public async Task<ScanResult> ScanAsync(
         string folder,
         IProgress<int>? progress = null,
+        IProgress<IReadOnlyCollection<int>>? albumsChanged = null,
         CancellationToken cancellationToken = default)
     {
         if (!Directory.Exists(folder)) throw new DirectoryNotFoundException(folder);
@@ -22,6 +24,8 @@ public sealed class MusicScanner(string settingsDirectory)
 
         await using var db = MusicDatabase.CreateContext(settingsDirectory);
         await db.Database.EnsureCreatedAsync(ct);
+
+        await db.Database.ExecuteSqlRawAsync("PRAGMA journal_mode = WAL;", ct);
 
         var found = FileFinder.FindFiles(folder);
         var foundSet = new HashSet<string>(found, StringComparer.OrdinalIgnoreCase);
@@ -36,6 +40,9 @@ public sealed class MusicScanner(string settingsDirectory)
 
         IDbContextTransaction? tx = null;
         var inBatch = 0;
+
+        var batchAlbums = new HashSet<int>();
+        var sinceCommit = Stopwatch.StartNew();
 
         try
         {
@@ -58,22 +65,33 @@ public sealed class MusicScanner(string settingsDirectory)
                         track = new Track { filePath = path};
                         db.tracks.Add(track);
                     }
-                    else touched.Add(track.albumId);
+                    else
+                    {
+                        touched.Add(track.albumId);
+                        batchAlbums.Add(track.albumId);
+                    }
+
                     var cover = await artwork.GetCoverAsync(path, metadata.artwork, ct);
+
                     TrackMapper.Apply(track, metadata, info, albumId, cover);
                     await db.SaveChangesAsync(ct);
 
                     touched.Add(albumId);
+                    batchAlbums.Add(albumId);
                     await artwork.SetAlbumCoverAsync(albumId, cover, ct);
                     if (isNew) result.filesAdded++; else result.filesUpdated++;
 
-                    if (++inBatch >= BatchSize)
+                    if (++inBatch >= BatchSize || sinceCommit.ElapsedMilliseconds >= 1000)
                     {
                         await tx.CommitAsync(ct);
                         await tx.DisposeAsync();
                         tx = null;
                         inBatch = 0;
                         db.ChangeTracker.Clear();
+
+                        albumsChanged?.Report(batchAlbums.ToList());
+                        batchAlbums.Clear();
+                        sinceCommit.Restart();
                     }
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
@@ -85,7 +103,11 @@ public sealed class MusicScanner(string settingsDirectory)
 
                 progress?.Report(++handled);
             }
-            if (tx != null) await tx.CommitAsync(ct);
+            if (tx != null) 
+            {
+                await tx.CommitAsync(ct);
+                albumsChanged?.Report(batchAlbums.ToList());
+            }
         }
         finally
         {
