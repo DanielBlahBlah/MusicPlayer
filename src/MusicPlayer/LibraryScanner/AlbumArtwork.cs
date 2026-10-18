@@ -1,7 +1,6 @@
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
-using System.Windows.Media.Imaging;
 using Microsoft.EntityFrameworkCore;
 using MusicPlayer.LibraryDatabase;
 using SkiaSharp;
@@ -12,14 +11,11 @@ public sealed record Cover(string path, string? hash);
 
 public static class CoverPaths
 {
-    public const int smallDivisor = 6;
-    public const int smallMin = 256;
-
-    public const int mediumDivisor = 4;
-    public const int mediumMin = 512;
+    public const int smallSize = 200;
+    public const int mediumSize = 350;
 
     public const int jpegQuality = 92;
-    public const float sharpenAmount = 0.3f;
+    public const float sharpenAmount = 0.15f;
 
     public static string? Small(string settingsDirectory, string? hash) => hash == null ? null : Path.Combine(settingsDirectory, "covers", "small", hash + ".jpg");
 
@@ -142,11 +138,13 @@ public sealed class AlbumArtwork(MusicDatabase db, string settingsDirectory)
 
         try
         {
-            var original = BitmapFrame.Create(new MemoryStream(data), BitmapCreateOptions.DelayCreation, BitmapCacheOption.None).PixelWidth;
+            using var source = SKBitmap.Decode(data);
 
-            WriteThumbnail(data, original, CoverPaths.Small(settingsDirectory, hash)!, CoverPaths.smallDivisor, CoverPaths.smallMin);
+            if (source == null) return false;
 
-            WriteThumbnail(data, original, CoverPaths.Medium(settingsDirectory, hash)!, CoverPaths.mediumDivisor, CoverPaths.mediumMin);
+            WriteThumbnail(source, CoverPaths.Small(settingsDirectory, hash)!, CoverPaths.smallSize);
+
+            WriteThumbnail(source, CoverPaths.Medium(settingsDirectory, hash)!, CoverPaths.mediumSize);
 
             thumbnailsMade.Add(hash);
             return true;
@@ -157,27 +155,62 @@ public sealed class AlbumArtwork(MusicDatabase db, string settingsDirectory)
         }
     }
 
-    private static void WriteThumbnail(byte[] data, int original, string outPath, int divisor, int min)
+    private static void WriteThumbnail(SKBitmap source, string outPath, int size)
     {
         if (File.Exists(outPath)) return;
 
-        var width = Math.Min(original, Math.Max(min, original/divisor));
-
         Directory.CreateDirectory(Path.GetDirectoryName(outPath)!);
 
-        var bitmap = new BitmapImage();
-        bitmap.BeginInit();
-        bitmap.CacheOption = BitmapCacheOption.OnLoad;
-        bitmap.DecodePixelWidth = width;
-        bitmap.StreamSource = new MemoryStream(data);
-        bitmap.EndInit();
-        bitmap.Freeze();
+        var scale = Math.Min(1.0, (double)size / Math.Max(source.Width, source.Height));
+        var width = Math.Max(1, (int)Math.Round(source.Width * scale));
+        var height = Math.Max(1, (int)Math.Round(source.Height * scale));
+        var info = new SKImageInfo(width, height);
+        var shrinking = width < source.Width || height < source.Height;
 
-        var encoder = new JpegBitmapEncoder { QualityLevel = 85};
+        using var surface = SKSurface.Create(info);
+        var canvas = surface.Canvas;
+        canvas.Clear(SKColors.White);
 
-        encoder.Frames.Add(BitmapFrame.Create(bitmap));
+        using var resized = shrinking ? ResizeSmooth(source, width, height) : null;
 
-        using var stream = File.Create(outPath);
-        encoder.Save(stream);
+        var a = CoverPaths.sharpenAmount;
+        float[] kernel = [0, -a, 0, -a, 1+4*a, -a, 0, -a, 0];
+
+        using var sharpen = shrinking && a > 0
+            ? SKImageFilter.CreateMatrixConvolution(
+                new SKSizeI(3,3), kernel, 1f, 0f, new SKPointI(1,1), SKShaderTileMode.Clamp, false)
+            : null;
+        
+        using var paint = new SKPaint { ImageFilter = sharpen};
+
+        canvas.DrawBitmap(resized ?? source, 0, 0, SKSamplingOptions.Default, paint);
+
+        using var pixmap = surface.PeekPixels();
+        using var output = new SKFileWStream(outPath);
+        pixmap.Encode(output, new SKJpegEncoderOptions(CoverPaths.jpegQuality, SKJpegEncoderDownsample.Downsample444, SKJpegEncoderAlphaOption.Ignore));
+    }
+
+    private static SKBitmap ResizeSmooth(SKBitmap source, int width, int height)
+    {
+        var current = source;
+
+        while (current.Width >= width * 2 && current.Height >= height * 2)
+        {
+            var half = current.Resize(current.Info.WithSize(current.Width/2, current.Height/2),
+                new SKSamplingOptions(SKFilterMode.Linear))
+                ?? throw new InvalidOperationException("Resize failed");
+
+            if (!ReferenceEquals(current, source)) current.Dispose();
+            current = half;
+        }
+
+        if (current.Width == width && current.Height == height) return current;
+
+        var final = current.Resize(current.Info.WithSize(width,height),
+            new SKSamplingOptions(SKCubicResampler.Mitchell))
+            ?? throw new InvalidOperationException("Resize failed");
+
+        if (!ReferenceEquals(current, source)) current.Dispose();
+        return final;
     }
 }
