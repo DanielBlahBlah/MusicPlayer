@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace MusicPlayer.LibraryObjects;
 
 public class Album
@@ -11,6 +13,8 @@ public class Album
 
     public string? artworkPath { get; set;}
     public string? artworkHash { get; set;}
+    [NotMapped] public string? thumbnailPath { get; set;}
+    [NotMapped] public string? mediumPath { get; set;}
     public DateTime dateAdded { get; set;} = DateTime.UtcNow;
     public int? rating { get; set;}
 

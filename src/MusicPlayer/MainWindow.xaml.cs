@@ -86,6 +86,12 @@ public partial class MainWindow : Window
             .AsNoTracking()
             .ToListAsync();
 
+        foreach (var album in albums)
+        {
+            album.thumbnailPath = CoverPaths.Small(settingsDirectory, album.artworkHash);
+            album.mediumPath = CoverPaths.Medium(settingsDirectory, album.artworkHash);
+        }
+
         var sorted = albums
             .OrderBy(a => sortKey(a.title), StringComparer.CurrentCultureIgnoreCase);
 

@@ -59,7 +59,7 @@
                                                                                 Height = "160"
                                                                                 Background = "Black"
                                                                                 ClipToBounds = "True">
-                                                                                <Image Source = "{Binding artworkPath}"
+                                                                                <Image Source = "{Binding thumbnailPath}"
                                                                                         Stretch = "Uniform"
                                                                                         RenderOptions.BitmapScalingMode = "HighQuality"
                                                                                         SnapsToDevicePixels = "True"/>
