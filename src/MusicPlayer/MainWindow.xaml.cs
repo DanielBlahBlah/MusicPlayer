@@ -217,6 +217,8 @@ public partial class MainWindow : Window
 
     private void mainWindowClosing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
+        scanCts?.Cancel();
+
         var settings = new ProjectSettings
         {
             Width = RestoreBounds.Width,
