@@ -158,6 +158,12 @@ public static class MusicMetadataReader
         }
     }
 
+    public static byte[]? ReadEmbeddedArtwork(string path)
+    {
+        using var file = TagLib.File.Create(path);
+        return ReadArtwork(file.Tag);
+    }
+
     private static byte[]? ReadArtwork(TagLib.Tag tag)
     {
         var pictures = tag.Pictures;

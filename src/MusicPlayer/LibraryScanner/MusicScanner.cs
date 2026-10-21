@@ -27,6 +27,9 @@ public sealed class MusicScanner(string settingsDirectory)
 
         await db.Database.ExecuteSqlRawAsync("PRAGMA journal_mode = WAL;", ct);
 
+        var artwork = new AlbumArtwork(db, settingsDirectory);
+        if (await artwork.RepairAsync(ct)) albumsChanged?.Report(Array.Empty<int>());
+
         var found = FileFinder.FindFiles(folder);
         var foundSet = new HashSet<string>(found, StringComparer.OrdinalIgnoreCase);
         result.filesFound = found.Count;
@@ -36,7 +39,6 @@ public sealed class MusicScanner(string settingsDirectory)
 
         var touched = new HashSet<int>();
         var albums = new AlbumResolver(db);
-        var artwork = new AlbumArtwork(db,settingsDirectory);
 
         IDbContextTransaction? tx = null;
         var inBatch = 0;

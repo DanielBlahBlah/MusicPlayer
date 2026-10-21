@@ -92,6 +92,42 @@ public sealed class AlbumArtwork(MusicDatabase db, string settingsDirectory)
         else hasAnyCover.Add(albumId);
     }
 
+    public async Task<bool> RepairAsync(CancellationToken ct)
+    {
+        var albums = await db.albums
+            .AsNoTracking()
+            .Where(a => a.artworkHash != null && a.artworkPath != null)
+            .Select(a => new {a.artworkPath, a.artworkHash})
+            .ToListAsync(ct);
+
+        var repaired = false;
+
+        foreach (var album in albums)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            var hash = album.artworkHash!;
+            var small = CoverPaths.Small(settingsDirectory, hash)!;
+            var medium = CoverPaths.Medium(settingsDirectory, hash)!;
+
+            if (File.Exists(small) && File.Exists(medium)) continue;
+            if (thumbnailsMade.Contains(hash)) continue;
+
+            try
+            {
+                var source = album.artworkPath!;
+                var data = IsImage(source) ? File.ReadAllBytes(source) : MusicMetadataReader.ReadEmbeddedArtwork(source);
+
+                if (data != null && MakeThumbnails(data, hash)) repaired = true;
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                
+            }
+        }
+        return repaired;
+    }
+
     private Cover? BuildFolderCover(string folder)
     {
         var image = FindFolderImage(folder);

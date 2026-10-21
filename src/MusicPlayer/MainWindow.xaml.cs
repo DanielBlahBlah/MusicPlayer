@@ -105,8 +105,8 @@ public partial class MainWindow : Window
 
             foreach (var album in albums)
             {
-                album.thumbnailPath = CoverPaths.Small(settingsDirectory, album.artworkHash);
-                album.mediumPath = CoverPaths.Medium(settingsDirectory, album.artworkHash);
+                album.thumbnailPath = existingFile(CoverPaths.Small(settingsDirectory, album.artworkHash));
+                album.mediumPath = existingFile(CoverPaths.Medium(settingsDirectory, album.artworkHash));
             }
 
             var sorted = albums
@@ -159,8 +159,11 @@ public partial class MainWindow : Window
         a.albumArtist != b.albumArtist ||
         a.artworkPath != b.artworkPath ||
         a.artworkHash != b.artworkHash ||
+        a.thumbnailPath != b.thumbnailPath ||
         a.releaseYear != b.releaseYear ||
         a.trackCount != b.trackCount;
+    
+    private static string? existingFile(string? path) => path != null && File.Exists(path) ? path : null;
 
     private static string sortKey(string? text)
     {
