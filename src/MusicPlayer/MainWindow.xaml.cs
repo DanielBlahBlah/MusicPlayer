@@ -28,6 +28,9 @@ public partial class MainWindow : Window
 
     public ObservableCollection<Album> Albums {get;} = new ObservableCollection<Album>();
 
+    private readonly SemaphoreSlim albumSync = new(1,1);
+    private bool liveRefreshRunning;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -43,7 +46,7 @@ public partial class MainWindow : Window
     {
         try
         {
-            await loadAlbumsAsync();
+            await loadAlbumsAsync(ensureCreated: true);
 
             await scanLibraryAsync();
 
@@ -66,8 +69,12 @@ public partial class MainWindow : Window
 
         var albumsChanged = new Progress<IReadOnlyCollection<int>>(async ids =>
         {
-            try { await showAlbumsAsync(ids);}
+            if (liveRefreshRunning) return;
+            liveRefreshRunning = true;
+
+            try { await loadAlbumsAsync();}
             catch (Exception) {}
+            finally {liveRefreshRunning = false;}
         });
 
         scanCts = new CancellationTokenSource();
@@ -81,69 +88,79 @@ public partial class MainWindow : Window
             string.Join("\n", result.Errors.Take(10)));
     }
 
-    private async Task showAlbumsAsync(IReadOnlyCollection<int> ids)
+    private async Task loadAlbumsAsync(bool ensureCreated = false)
     {
-        await using var db = MusicDatabase.CreateContext(settingsDirectory);
+        await albumSync.WaitAsync();
 
-        var loaded = await db.albums
-            .AsNoTracking()
-            .Where(a => ids.Contains(a.id))
-            .ToListAsync();
-
-        foreach (var album in loaded)
+        try
         {
-            album.thumbnailPath = CoverPaths.Small(settingsDirectory, album.artworkHash);
-            album.mediumPath = CoverPaths.Medium(settingsDirectory, album.artworkHash);
+            List<Album> albums;
 
-            var index = -1;
-            for (var i = 0; i < Albums.Count; i++)
+            await using (var db = MusicDatabase.CreateContext(settingsDirectory))
             {
-                if (Albums[i].id == album.id) {index = 1; break;}
+                if (ensureCreated) await db.Database.EnsureCreatedAsync();
+
+                albums = await db.albums.AsNoTracking().ToListAsync();
             }
 
-            if (index >= 0) Albums[index] = album;
-            else Albums.Insert(sortedIndex(album), album);
+            foreach (var album in albums)
+            {
+                album.thumbnailPath = CoverPaths.Small(settingsDirectory, album.artworkHash);
+                album.mediumPath = CoverPaths.Medium(settingsDirectory, album.artworkHash);
+            }
+
+            var sorted = albums
+                .OrderBy(a => sortKey(a.title), StringComparer.CurrentCultureIgnoreCase)
+                .ThenBy(a => a.id)
+                .ToList();
+
+            syncAlbums(sorted);
         }
-    }
-
-    private int sortedIndex(Album album)
-    {
-        var key = sortKey(album.title);
-        var low = 0;
-        var high = Albums.Count;
-
-        while (low < high)
+        finally
         {
-            var mid = (low + high) / 2;
-
-            if (StringComparer.CurrentCultureIgnoreCase.Compare(sortKey(Albums[mid].title), key) <= 0) low = mid + 1;
-            else high = mid;
+            albumSync.Release();
         }
-
-        return low;
     }
 
-    private async Task loadAlbumsAsync()
+    private void syncAlbums(List<Album> target)
     {
-        await using var db = MusicDatabase.CreateContext(settingsDirectory);
-        await db.Database.EnsureCreatedAsync();
-
-        var albums = await db.albums
-            .AsNoTracking()
-            .ToListAsync();
-
-        foreach (var album in albums)
+        for (var i = 0; i < target.Count; i++)
         {
-            album.thumbnailPath = CoverPaths.Small(settingsDirectory, album.artworkHash);
-            album.mediumPath = CoverPaths.Medium(settingsDirectory, album.artworkHash);
+            var album = target[i];
+
+            if (i < Albums.Count && Albums[i].id == album.id)
+            {
+                if (albumChanged(Albums[i], album)) Albums[i] = album;
+                continue;
+            }
+
+            var existing = -1;
+            for (var j = i + 1; j < Albums.Count; j++)
+            {
+                if (Albums[j].id == album.id) {existing = j; break;}
+            }
+
+            if (existing >= 0)
+            {
+                Albums.Move(existing,i);
+                if (albumChanged(Albums[i], album)) Albums[i] = album;
+            }
+            else
+            {
+                Albums.Insert(i, album);
+            }
         }
 
-        var sorted = albums
-            .OrderBy(a => sortKey(a.title), StringComparer.CurrentCultureIgnoreCase);
-
-        Albums.Clear();
-        foreach (var album in sorted) Albums.Add(album);
+        while (Albums.Count > target.Count) Albums.RemoveAt(Albums.Count - 1);
     }
+
+    private static bool albumChanged(Album a, Album b) =>
+        a.title != b.title ||
+        a.albumArtist != b.albumArtist ||
+        a.artworkPath != b.artworkPath ||
+        a.artworkHash != b.artworkHash ||
+        a.releaseYear != b.releaseYear ||
+        a.trackCount != b.trackCount;
 
     private static string sortKey(string? text)
     {
