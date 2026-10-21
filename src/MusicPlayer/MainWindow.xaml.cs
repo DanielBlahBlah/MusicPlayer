@@ -24,7 +24,7 @@ public partial class MainWindow : Window
 
     private CancellationTokenSource? scanCts;
 
-    private static readonly string[] ignoredWords = ["the ", "a ", "an "];
+    private static string sortKey(string? text) => AlbumSort.sortKey(text);
 
     public ObservableCollection<Album> Albums {get;} = new ObservableCollection<Album>();
 
@@ -164,21 +164,6 @@ public partial class MainWindow : Window
         a.trackCount != b.trackCount;
     
     private static string? existingFile(string? path) => path != null && File.Exists(path) ? path : null;
-
-    private static string sortKey(string? text)
-    {
-        var value = (text ?? "").Trim();
-
-        foreach (var word in ignoredWords)
-        {
-            if (value.Length > word.Length && value.StartsWith(word, StringComparison.CurrentCultureIgnoreCase))
-            {
-                return value[word.Length..].TrimStart();
-            }
-        }
-
-        return value;
-    }
 
     private void loadWindowSettings()
     {

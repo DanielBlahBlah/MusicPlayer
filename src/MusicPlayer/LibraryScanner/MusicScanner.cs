@@ -28,7 +28,7 @@ public sealed class MusicScanner(string settingsDirectory)
         await db.Database.ExecuteSqlRawAsync("PRAGMA journal_mode = WAL;", ct);
 
         var artwork = new AlbumArtwork(db, settingsDirectory);
-        if (await artwork.RepairAsync(ct)) albumsChanged?.Report(Array.Empty<int>());
+        await artwork.RepairAsync(() => albumsChanged?.Report(Array.Empty<int>()), ct);
 
         var found = FileFinder.FindFiles(folder);
         var foundSet = new HashSet<string>(found, StringComparer.OrdinalIgnoreCase);

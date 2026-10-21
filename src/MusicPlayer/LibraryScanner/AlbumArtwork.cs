@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
@@ -92,15 +93,21 @@ public sealed class AlbumArtwork(MusicDatabase db, string settingsDirectory)
         else hasAnyCover.Add(albumId);
     }
 
-    public async Task<bool> RepairAsync(CancellationToken ct)
+    public async Task RepairAsync(Action onProgress, CancellationToken ct)
     {
-        var albums = await db.albums
+        var rows = await db.albums
             .AsNoTracking()
             .Where(a => a.artworkHash != null && a.artworkPath != null)
-            .Select(a => new {a.artworkPath, a.artworkHash})
+            .Select(a => new {a.id, a.title, a.artworkPath, a.artworkHash})
             .ToListAsync(ct);
 
-        var repaired = false;
+        var albums = rows
+            .OrderBy(a => AlbumSort.sortKey(a.title), StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(a => a.id)
+            .ToList();
+
+        var sinceReport = Stopwatch.StartNew();
+        var pending = false;
 
         foreach (var album in albums)
         {
@@ -118,14 +125,22 @@ public sealed class AlbumArtwork(MusicDatabase db, string settingsDirectory)
                 var source = album.artworkPath!;
                 var data = IsImage(source) ? File.ReadAllBytes(source) : MusicMetadataReader.ReadEmbeddedArtwork(source);
 
-                if (data != null && MakeThumbnails(data, hash)) repaired = true;
+                if (data != null && MakeThumbnails(data, hash)) pending = true;
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 
             }
+
+            if (pending && sinceReport.ElapsedMilliseconds >= 250)
+            {
+                onProgress();
+                pending = false;
+                sinceReport.Restart();
+            }
         }
-        return repaired;
+
+        if (pending) onProgress();
     }
 
     private Cover? BuildFolderCover(string folder)
