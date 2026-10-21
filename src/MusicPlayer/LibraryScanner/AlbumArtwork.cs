@@ -15,7 +15,7 @@ public static class CoverPaths
     public const int mediumSize = 350;
 
     public const int jpegQuality = 92;
-    public const float sharpenAmount = 0.15f;
+    public const float sharpenAmount = 0.05f;
 
     public static string? Small(string settingsDirectory, string? hash) => hash == null ? null : Path.Combine(settingsDirectory, "covers", "small", hash + ".jpg");
 
