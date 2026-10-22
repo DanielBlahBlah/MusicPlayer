@@ -15,6 +15,8 @@ public class Album
     public string? artworkHash { get; set;}
     [NotMapped] public string? thumbnailPath { get; set;}
     [NotMapped] public string? mediumPath { get; set;}
+    [NotMapped] public string? groupLetter { get; set;}
+    [NotMapped] public string? sortTitle { get; set;}
     public DateTime dateAdded { get; set;} = DateTime.UtcNow;
     public int? rating { get; set;}
 
@@ -24,6 +26,7 @@ public class Album
     public int? trackCount { get; set;}
     public int? discCount { get; set;}
     public string? publisher { get; set;}
+    public string? genre { get; set;}
     public bool isCompilation { get; set;}
 
     public double? replayGainAlbumGain { get; set;}

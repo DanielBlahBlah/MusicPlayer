@@ -1,7 +1,9 @@
 ﻿using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.IO;
 using System.Text.Json;
 using System.Windows;
+using System.Windows.Data;
 using Microsoft.EntityFrameworkCore;
 using MusicPlayer.LibraryDatabase;
 using MusicPlayer.LibraryObjects;
@@ -37,6 +39,11 @@ public partial class MainWindow : Window
         loadWindowSettings();
 
         DataContext = this;
+
+        var view = CollectionViewSource.GetDefaultView(Albums);
+        view.GroupDescriptions.Add(new PropertyGroupDescription(nameof(Album.groupLetter)));
+        view.SortDescriptions.Add(new SortDescription(nameof(Album.groupLetter), ListSortDirection.Ascending));
+        view.SortDescriptions.Add(new SortDescription(nameof(Album.sortTitle), ListSortDirection.Ascending));
 
         Loaded += mainWindowLoaded;
         Closing += mainWindowClosing;
@@ -107,6 +114,9 @@ public partial class MainWindow : Window
             {
                 album.thumbnailPath = existingFile(CoverPaths.Small(settingsDirectory, album.artworkHash));
                 album.mediumPath = existingFile(CoverPaths.Medium(settingsDirectory, album.artworkHash));
+
+                album.groupLetter = AlbumSort.Letter(album.title);
+                album.sortTitle = AlbumSort.sortKey(album.title);
             }
 
             var sorted = albums
@@ -162,7 +172,7 @@ public partial class MainWindow : Window
         a.thumbnailPath != b.thumbnailPath ||
         a.releaseYear != b.releaseYear ||
         a.trackCount != b.trackCount;
-    
+
     private static string? existingFile(string? path) => path != null && File.Exists(path) ? path : null;
 
     private void loadWindowSettings()
@@ -203,7 +213,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void mainWindowClosing(object? sender, System.ComponentModel.CancelEventArgs e)
+    private void mainWindowClosing(object? sender, CancelEventArgs e)
     {
         scanCts?.Cancel();
 

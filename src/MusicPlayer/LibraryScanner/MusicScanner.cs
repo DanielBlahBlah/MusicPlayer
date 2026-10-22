@@ -85,6 +85,7 @@ public sealed class MusicScanner(string settingsDirectory)
 
                     if (++inBatch >= BatchSize || sinceCommit.ElapsedMilliseconds >= 1000)
                     {
+                        await RefreshBatchAsync(db, batchAlbums, ct);
                         await tx.CommitAsync(ct);
                         await tx.DisposeAsync();
                         tx = null;
@@ -107,6 +108,7 @@ public sealed class MusicScanner(string settingsDirectory)
             }
             if (tx != null) 
             {
+                await RefreshBatchAsync(db, batchAlbums, ct);
                 await tx.CommitAsync(ct);
                 albumsChanged?.Report(batchAlbums.ToList());
             }
@@ -125,5 +127,12 @@ public sealed class MusicScanner(string settingsDirectory)
         await db.SaveChangesAsync(ct);
 
         return result;
+    }
+
+    private static async Task RefreshBatchAsync(MusicDatabase db, IEnumerable<int> albumIds, CancellationToken ct)
+    {
+        foreach (var albumId in albumIds) await AlbumRefresher.RefreshAsync(db,albumId, ct);
+
+        await db.SaveChangesAsync(ct);
     }
 }

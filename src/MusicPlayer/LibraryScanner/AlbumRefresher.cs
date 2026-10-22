@@ -16,6 +16,7 @@ public static class AlbumRefresher
                 t.releaseDate,
                 t.releaseYear,
                 t.publisher,
+                t.genre,
                 t.isCompilation
             })
             .ToListAsync(ct);
@@ -29,6 +30,7 @@ public static class AlbumRefresher
         album.releaseDate = AgreedText(tracks.Select(t => t.releaseDate));
         album.releaseYear = AgreedInt(tracks.Select(t => t.releaseYear));
         album.publisher = AgreedText(tracks.Select(t => t.publisher));
+        album.genre = AgreedText(tracks.Select(t => t.genre));
         album.isCompilation = tracks.Any(t => t.isCompilation);
 
         album.trackCount = tracks.Count;
