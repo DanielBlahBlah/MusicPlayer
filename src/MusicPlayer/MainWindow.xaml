@@ -44,12 +44,29 @@
                                                 Foreground = "Black"
                                                 Margin = "0,0,0,20"/>
                                         <ItemsControl ItemsSource = "{Binding Albums}">
-
                                                 <ItemsControl.ItemsPanel>
                                                         <ItemsPanelTemplate>
                                                                 <WrapPanel Orientation = "Horizontal"/>
                                                         </ItemsPanelTemplate>
                                                 </ItemsControl.ItemsPanel>
+
+                                                <ItemsControl.GroupStyle>
+                                                        <GroupStyle>
+                                                                <GroupStyle.HeaderTemplate>
+                                                                        <DataTemplate>
+                                                                                <StackPanel Margin = "0,12,0,16">
+                                                                                        <TextBlock Text = "{Binding Name}"
+                                                                                                Foreground = "White"
+                                                                                                FontSize = "40"
+                                                                                                FontWeight = "Bold"/>
+                                                                                        <Border Height = "1"
+                                                                                                Background = "#333333"
+                                                                                                Margin = "0,6,0,0"/>
+                                                                                </StackPanel>
+                                                                        </DataTemplate>
+                                                                </GroupStyle.HeaderTemplate>
+                                                        </GroupStyle>
+                                                </ItemsControl.GroupStyle>
 
                                                 <ItemsControl.ItemTemplate>
                                                         <DataTemplate>
