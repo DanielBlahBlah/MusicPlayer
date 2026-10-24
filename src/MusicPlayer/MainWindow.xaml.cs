@@ -3,7 +3,9 @@ using System.ComponentModel;
 using System.IO;
 using System.Text.Json;
 using System.Windows;
-using System.Windows.Data;
+using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Media;
 using Microsoft.EntityFrameworkCore;
 using MusicPlayer.LibraryDatabase;
 using MusicPlayer.LibraryObjects;
@@ -28,10 +30,16 @@ public partial class MainWindow : Window
 
     private static string sortKey(string? text) => AlbumSort.sortKey(text);
 
-    public ObservableCollection<Album> Albums {get;} = new ObservableCollection<Album>();
+    public ObservableCollection<GridRow> Rows { get;} = new ObservableCollection<GridRow>();
+
+    private List<Album> sortedAlbums = new();
+    private int columns = 6;
+    private const double tileSlotWidth = 180;
 
     private readonly SemaphoreSlim albumSync = new(1,1);
     private bool liveRefreshRunning;
+
+    private const double wheelSpeed = 3.0;
 
     public MainWindow()
     {
@@ -39,11 +47,6 @@ public partial class MainWindow : Window
         loadWindowSettings();
 
         DataContext = this;
-
-        var view = CollectionViewSource.GetDefaultView(Albums);
-        view.GroupDescriptions.Add(new PropertyGroupDescription(nameof(Album.groupLetter)));
-        view.SortDescriptions.Add(new SortDescription(nameof(Album.groupLetter), ListSortDirection.Ascending));
-        view.SortDescriptions.Add(new SortDescription(nameof(Album.sortTitle), ListSortDirection.Ascending));
 
         Loaded += mainWindowLoaded;
         Closing += mainWindowClosing;
@@ -119,12 +122,14 @@ public partial class MainWindow : Window
                 album.sortTitle = AlbumSort.sortKey(album.title);
             }
 
-            var sorted = albums
-                .OrderBy(a => sortKey(a.title), StringComparer.CurrentCultureIgnoreCase)
+            var sortedAlbums = albums
+                .OrderBy(a => a.groupLetter, StringComparer.CurrentCultureIgnoreCase)
+                .ThenBy(a => a.sortTitle, StringComparer.CurrentCultureIgnoreCase)
+                .ThenBy(a => sortKey(a.albumArtist), StringComparer.CurrentCultureIgnoreCase)
                 .ThenBy(a => a.id)
                 .ToList();
 
-            syncAlbums(sorted);
+            syncRows(buildRows(sortedAlbums, columns));
         }
         finally
         {
@@ -132,36 +137,63 @@ public partial class MainWindow : Window
         }
     }
 
-    private void syncAlbums(List<Album> target)
+    private static List<GridRow> buildRows(List<Album> albums, int columns)
+    {
+        var rows = new List<GridRow>();
+        var current = new List<Album>();
+        string? letter = null;
+
+        void finishRow()
+        {
+            if (current.Count == 0) return;
+            rows.Add(new AlbumRow(current));
+            current = new List<Album>();
+        }
+
+        foreach (var album in albums)
+        {
+            if (album.groupLetter != letter)
+            {
+                finishRow();
+                letter = album.groupLetter;
+                rows.Add(new HeaderRow(letter ?? "#"));
+            }
+
+            current.Add(album);
+            if (current.Count == columns) finishRow();
+        }
+
+        finishRow();
+        return rows;
+    }
+
+    private void syncRows(List<GridRow> target)
     {
         for (var i = 0; i < target.Count; i++)
         {
-            var album = target[i];
-
-            if (i < Albums.Count && Albums[i].id == album.id)
-            {
-                if (albumChanged(Albums[i], album)) Albums[i] = album;
-                continue;
-            }
-
-            var existing = -1;
-            for (var j = i + 1; j < Albums.Count; j++)
-            {
-                if (Albums[j].id == album.id) {existing = j; break;}
-            }
-
-            if (existing >= 0)
-            {
-                Albums.Move(existing,i);
-                if (albumChanged(Albums[i], album)) Albums[i] = album;
-            }
-            else
-            {
-                Albums.Insert(i, album);
-            }
+            if (i >= Rows.Count) Rows.Add(target[i]);
+            else if (!sameRow(Rows[i], target[i])) Rows[i] = target[i];
         }
 
-        while (Albums.Count > target.Count) Albums.RemoveAt(Albums.Count - 1);
+        while (Rows.Count > target.Count) Rows.RemoveAt(Rows.Count - 1);
+    }
+
+    private static bool sameRow(GridRow a, GridRow b) => (a,b) switch
+    {
+        (HeaderRow x, HeaderRow y) => x.letter == y.letter,
+        (AlbumRow x, AlbumRow y) => x.albums.Count == y.albums.Count && x.albums.Zip(y.albums).All(pair => pair.First.id == pair.Second.id && !albumChanged(pair.First, pair.Second)),
+        _ => false
+    };
+
+    private void gridAreaSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        var available = e.NewSize.Width - 40 + 20;
+        var newColumns = Math.Max(1,(int)(available / tileSlotWidth));
+
+        if (newColumns == columns) return;
+
+        columns = newColumns;
+        syncRows(buildRows(sortedAlbums, columns));
     }
 
     private static bool albumChanged(Album a, Album b) =>
@@ -171,9 +203,36 @@ public partial class MainWindow : Window
         a.artworkHash != b.artworkHash ||
         a.thumbnailPath != b.thumbnailPath ||
         a.releaseYear != b.releaseYear ||
+        a.genre != b.genre ||
         a.trackCount != b.trackCount;
 
     private static string? existingFile(string? path) => path != null && File.Exists(path) ? path : null;
+
+    private void gridPreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (findScrollViewer((DependencyObject)sender) is not {} scroller) return;
+
+        var notches = e.Delta / 120.0;
+        var pixels = notches * SystemParameters.WheelScrollLines * 16 * wheelSpeed;
+
+        scroller.ScrollToVerticalOffset(scroller.VerticalOffset - pixels);
+        e.Handled = true;
+    }
+
+    private static ScrollViewer? findScrollViewer(DependencyObject parent)
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+
+            if (child is ScrollViewer scroller) return scroller;
+
+            var found = findScrollViewer(child);
+            if (found != null) return found;
+        }
+
+        return null;
+    }
 
     private void loadWindowSettings()
     {
