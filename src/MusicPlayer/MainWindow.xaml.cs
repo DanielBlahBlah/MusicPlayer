@@ -6,6 +6,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using Microsoft.EntityFrameworkCore;
 using MusicPlayer.LibraryDatabase;
 using MusicPlayer.LibraryObjects;
@@ -32,9 +33,12 @@ public partial class MainWindow : Window
 
     public ObservableCollection<GridRow> Rows { get;} = new ObservableCollection<GridRow>();
 
+    private AlbumDetail? openDetail;
     private List<Album> sortedAlbums = new();
     private int columns = 6;
-    private const double tileSlotWidth = 180;
+    private double gridWidth = 1000;
+    private int shownTrackColumns = 1;
+    private const double tileSlotWidth = 170;
 
     private readonly SemaphoreSlim albumSync = new(1,1);
     private bool liveRefreshRunning;
@@ -50,6 +54,7 @@ public partial class MainWindow : Window
 
         Loaded += mainWindowLoaded;
         Closing += mainWindowClosing;
+        KeyDown += mainWindowKeyDown;
     }
 
     private async void mainWindowLoaded(object sender, RoutedEventArgs e)
@@ -122,14 +127,14 @@ public partial class MainWindow : Window
                 album.sortTitle = AlbumSort.sortKey(album.title);
             }
 
-            var sortedAlbums = albums
+            sortedAlbums = albums
                 .OrderBy(a => a.groupLetter, StringComparer.CurrentCultureIgnoreCase)
                 .ThenBy(a => a.sortTitle, StringComparer.CurrentCultureIgnoreCase)
                 .ThenBy(a => sortKey(a.albumArtist), StringComparer.CurrentCultureIgnoreCase)
                 .ThenBy(a => a.id)
                 .ToList();
 
-            syncRows(buildRows(sortedAlbums, columns));
+            refreshRows();
         }
         finally
         {
@@ -137,16 +142,31 @@ public partial class MainWindow : Window
         }
     }
 
-    private static List<GridRow> buildRows(List<Album> albums, int columns)
+    private int trackColumnsNow() => openDetail?.ChooseColumns(gridWidth - 356) ?? 1;
+    private void refreshRows()
+    {
+        shownTrackColumns = trackColumnsNow();
+        syncRows(buildRows(sortedAlbums, columns, openDetail, shownTrackColumns));
+    }
+
+    private static List<GridRow> buildRows(List<Album> albums, int columns, AlbumDetail? detail, int trackColumns)
     {
         var rows = new List<GridRow>();
         var current = new List<Album>();
         string? letter = null;
+        int? openColumn = null;
 
         void finishRow()
         {
             if (current.Count == 0) return;
-            rows.Add(new AlbumRow(current));
+            rows.Add(new AlbumRow(current, columns));
+
+            if (detail != null && openColumn != null)
+            {
+                rows.Add(new DetailRow(detail, openColumn.Value,columns, trackColumns));
+                openColumn = null;
+            }
+
             current = new List<Album>();
         }
 
@@ -158,6 +178,8 @@ public partial class MainWindow : Window
                 letter = album.groupLetter;
                 rows.Add(new HeaderRow(letter ?? "#"));
             }
+
+            if (detail != null && album.id == detail.album.id) openColumn = current.Count;
 
             current.Add(album);
             if (current.Count == columns) finishRow();
@@ -172,6 +194,7 @@ public partial class MainWindow : Window
         for (var i = 0; i < target.Count; i++)
         {
             if (i >= Rows.Count) Rows.Add(target[i]);
+            else if (Rows[i] is DetailRow current && target[i] is DetailRow next && ReferenceEquals(current.detail, next.detail)) current.UpdateFrom(next);
             else if (!sameRow(Rows[i], target[i])) Rows[i] = target[i];
         }
 
@@ -187,13 +210,14 @@ public partial class MainWindow : Window
 
     private void gridAreaSizeChanged(object sender, SizeChangedEventArgs e)
     {
-        var available = e.NewSize.Width - 40 + 20;
+        gridWidth = e.NewSize.Width;
+        var available = e.NewSize.Width - 20 - SystemParameters.VerticalScrollBarWidth;
         var newColumns = Math.Max(1,(int)(available / tileSlotWidth));
 
-        if (newColumns == columns) return;
+        if (newColumns == columns && trackColumnsNow() == shownTrackColumns) return;
 
         columns = newColumns;
-        syncRows(buildRows(sortedAlbums, columns));
+        refreshRows();
     }
 
     private static bool albumChanged(Album a, Album b) =>
@@ -207,6 +231,63 @@ public partial class MainWindow : Window
         a.trackCount != b.trackCount;
 
     private static string? existingFile(string? path) => path != null && File.Exists(path) ? path : null;
+
+    private async void albumTileClicked(object sender, MouseButtonEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not Album album) return;
+
+        try
+        {
+            if (openDetail?.album.id == album.id) closeAlbum();
+            else await openAlbumAsync(album);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message);
+        }
+    }
+
+    private async Task openAlbumAsync(Album album)
+    {
+        List<Track> tracks;
+
+        await using (var db = MusicDatabase.CreateContext(settingsDirectory))
+        {
+            tracks = await db.tracks
+                .AsNoTracking()
+                .Where(t => t.albumId == album.id)
+                .OrderBy(t => t.discNumber ?? 1)
+                .ThenBy(t => t.trackNumber ?? int.MaxValue)
+                .ThenBy(t => t.title)
+                .ToListAsync();
+        }
+
+        openDetail = AlbumDetail.Build(album, tracks);
+        refreshRows();
+
+        await Dispatcher.Yield(DispatcherPriority.Background);
+
+        var row = Rows.OfType<DetailRow>().FirstOrDefault();
+
+        if (row != null && albumGrid.ItemContainerGenerator.ContainerFromItem(row) is FrameworkElement panel) panel.BringIntoView();
+    }
+
+    private void closeAlbum()
+    {
+        openDetail = null;
+        refreshRows();
+    }
+
+    private void albumDetailClose(object sender, MouseButtonEventArgs e) => closeAlbum();
+
+    private void mainWindowKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape && openDetail != null)
+        {
+            closeAlbum();
+            e.Handled = true;
+        }
+    }
 
     private void gridPreviewMouseWheel(object sender, MouseWheelEventArgs e)
     {

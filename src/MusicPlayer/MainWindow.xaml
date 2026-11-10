@@ -7,11 +7,13 @@
         <Window.Resources>
                 <DataTemplate x:Key="albumTitle">
                         <StackPanel Width = "160"
-                                Margin = "0,0,20,24">
+                                Margin = "0,0,0,24"
+                                Background = "Transparent"
+                                Cursor = "Hand"
+                                MouseLeftButtonUp = "albumTileClicked">
                                 <Border Width = "160"
                                         Height = "160"
-                                        Background = "Black"
-                                        ClipToBounds = "True">
+                                        Background = "Black">
                                         <Image local:AsyncImage.Path = "{Binding thumbnailPath}"
                                                 Stretch = "Uniform"
                                                 RenderOptions.BitmapScalingMode = "Linear"
@@ -37,7 +39,135 @@
                         </StackPanel>
                 </DataTemplate>
 
+                <DataTemplate DataType = "{x:Type local:DetailRow}">
+                        <local:ClampWidth>
+                        <StackPanel Margin = "0,-14,0,24"
+                                UseLayoutRounding = "True"
+                                TextOptions.TextFormattingMode = "Display">
+                                <local:ClampPointer Columns = "{Binding columns}"
+                                        Column = "{Binding pointerColumn}"
+                                        TileWidth = "160">
+                                        <Path Data = "M 0, 14 L 12, 0 L 24, 14 Z"
+                                                Fill = "#181818"/>
+                                </local:ClampPointer>
+                                <Border Background = "#181818"
+                                        Margin = "0,0,20,0"
+                                        CornerRadius = "8"
+                                        Padding = "24">
+                                        <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width = "Auto"/>
+                                                        <ColumnDefinition Width = "*"/>
+                                                </Grid.ColumnDefinitions>
+
+                                                <Border Grid.Column = "0"
+                                                        Width = "220"
+                                                        Height = "220"
+                                                        Background = "#0E0E0E"
+                                                        VerticalAlignment = "Top">
+                                                        <Image Source = "{Binding detail.album.mediumPath}"
+                                                                Stretch = "Uniform"
+                                                                RenderOptions.BitmapScalingMode = "Linear"/>
+                                                </Border>
+
+                                                <StackPanel Grid.Column = "1"
+                                                        Margin = "28,0,0,0">
+
+                                                        <Grid>
+                                                                <StackPanel Margin = "0,0,32,0">
+                                                                        <TextBlock Text = "{Binding detail.album.title}"
+                                                                                Foreground = "White"
+                                                                                FontSize = "26"
+                                                                                FontWeight = "Bold"
+                                                                                TextWrapping = "Wrap"/>
+                                                                        <TextBlock Text = "{Binding detail.album.albumArtist}"
+                                                                                Foreground = "White"
+                                                                                FontSize = "16"
+                                                                                Margin = "0,2,0,0"/>
+                                                                        <TextBlock Text = "{Binding detail.summary}"
+                                                                                Foreground = "#AAAAAA"
+                                                                                FontSize = "13"
+                                                                                Margin = "0,6,0,0"/>
+                                                                </StackPanel>
+
+                                                                <TextBlock Text = "x"
+                                                                        Foreground = "#888888"
+                                                                        FontSize = "26"
+                                                                        Cursor = "Hand"
+                                                                        HorizontalAlignment = "Right"
+                                                                        VerticalAlignment = "Top"
+                                                                        MouseLeftButtonUp = "albumDetailClose"/>
+                                                        </Grid>
+
+                                                        <ItemsControl ItemsSource = "{Binding trackSections}"
+                                                                Margin = "0,18,0,0">
+                                                                <ItemsControl.ItemTemplate>
+                                                                        <DataTemplate>
+                                                                                <StackPanel>
+                                                                                        <TextBlock Text = "{Binding heading}"
+                                                                                                Visibility = "{Binding headingVisibility}"
+                                                                                                Foreground = "White"
+                                                                                                FontSize = "16"
+                                                                                                FontWeight = "Bold"
+                                                                                                Margin = "0,14,0,6"/>
+                                                                                        <ItemsControl ItemsSource = "{Binding columns}">
+                                                                                                <ItemsControl.ItemsPanel>
+                                                                                                        <ItemsPanelTemplate>
+                                                                                                                <local:ColumnAnchor Slots = "{Binding slots}"
+                                                                                                                        GrowTo = "{Binding growTo}"/>
+                                                                                                        </ItemsPanelTemplate>
+                                                                                                </ItemsControl.ItemsPanel>
+                                                                                                <ItemsControl.ItemTemplate>
+                                                                                                        <DataTemplate>
+                                                                                                                <ItemsControl ItemsSource = "{Binding}"
+                                                                                                                        Margin = "0,0,8,0"/>
+                                                                                                        </DataTemplate>
+                                                                                                </ItemsControl.ItemTemplate>
+                                                                                        </ItemsControl>
+                                                                                </StackPanel>
+                                                                        </DataTemplate>
+                                                                </ItemsControl.ItemTemplate>
+                                                        </ItemsControl>
+                                                </StackPanel>
+                                        </Grid>
+                                </Border>
+                        </StackPanel>
+                </local:ClampWidth>
+                </DataTemplate>
+
+                <DataTemplate DataType = "{x:Type local:TrackRow}">
+                        <Grid Height = "28" Margin = "{Binding rowMargin}">
+                                <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width = "34"/>
+                                        <ColumnDefinition Width = "*"/>
+                                        <ColumnDefinition Width = "70"/>
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock Grid.Column = "0"
+                                        Text = "{Binding number}"
+                                        Foreground = "#888888"
+                                        FontSize = "15"
+                                        VerticalAlignment = "Center"
+                                        HorizontalAlignment = "Right"
+                                        Margin = "0,0,16,0"/>
+
+                                <TextBlock Grid.Column = "1"
+                                        VerticalAlignment = "Center"
+                                        TextTrimming = "CharacterEllipsis">
+                                        <Run Text = "{Binding title, Mode=OneWay}" Foreground = "White" FontSize = "15" /><Run Text = "{Binding artistLabel, Mode = OneWay}" Foreground = "#888888" FontSize = "15"/>
+                                </TextBlock>
+
+                                <TextBlock Grid.Column = "2"
+                                        Text = "{Binding duration}"
+                                        Foreground = "#AAAAAA"
+                                        FontSize = "15"
+                                        VerticalAlignment = "Center"
+                                        HorizontalAlignment = "Right"/>
+                        </Grid>
+                </DataTemplate>
+
                 <DataTemplate DataType = "{x:Type local:HeaderRow}">
+                        <local:ClampWidth>
                         <StackPanel Margin = "0,12,20,16">
                                 <TextBlock Text = "{Binding letter}"
                                         Foreground = "White"
@@ -47,23 +177,27 @@
                                         Background = "White"
                                         Margin = "0,6,0,0"/>
                         </StackPanel>
+                </local:ClampWidth>
                 </DataTemplate>
 
                 <DataTemplate DataType = "{x:Type local:AlbumRow}">
+                        <local:ClampWidth>
                         <ItemsControl ItemsSource = "{Binding albums}"
                                 ItemTemplate = "{StaticResource albumTitle}">
                                 <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
-                                                <StackPanel Orientation = "Horizontal"/>
+                                                <local:AlbumSpreadPanel ItemWidth = "160"
+                                                        Columns = "{Binding columns}"/>
                                         </ItemsPanelTemplate>
                                 </ItemsControl.ItemsPanel>
                         </ItemsControl>
+                </local:ClampWidth>
                 </DataTemplate>
         </Window.Resources>
 
         <Grid Background = "White" UseLayoutRounding = "True">
                 <Grid.ColumnDefinitions>
-                        <ColumnDefinition x:Name="sidebar" MinWidth="180" MaxWidth="420" />
+                        <ColumnDefinition x:Name="sidebar" Width = "250" MinWidth="180" MaxWidth="420" />
                         <ColumnDefinition Width = "8" />
                         <ColumnDefinition Width = "*" />
                 </Grid.ColumnDefinitions>
@@ -109,7 +243,8 @@
                                 Foreground = "White"
                                 Margin = "20,20,20,10"/>
  
-                        <ItemsControl Grid.Row = "1"
+                        <ItemsControl x:Name = "albumGrid"
+                                Grid.Row = "1"
                                 Margin = "20,0,0,0"
                                 ItemsSource = "{Binding Rows}"
                                 PreviewMouseWheel = "gridPreviewMouseWheel"
@@ -124,7 +259,7 @@
                                         <ControlTemplate TargetType = "ItemsControl">
                                                 <ScrollViewer CanContentScroll = "True"
                                                         Focusable = "False"
-                                                        VerticalScrollBarVisibility = "Auto"
+                                                        VerticalScrollBarVisibility = "Visible"
                                                         HorizontalScrollBarVisibility = "Disabled">
                                                         <ItemsPresenter/>
                                                 </ScrollViewer>

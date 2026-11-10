@@ -33,17 +33,56 @@ public static class AsyncImage
     private static double lastReading;
     private static double scrollSpeed;
 
+    private const int maxCached = 800;
+    private static readonly Dictionary<string, BitmapImage> cache = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly LinkedList<string> cacheOrder = new();
+
+    private static BitmapImage? fromCache(string path)
+    {
+        if (!cache.TryGetValue(path, out var bitmap)) return null;
+
+        cacheOrder.Remove(path);
+        cacheOrder.AddFirst(path);
+        return bitmap;
+    }
+
+    private static void addToCache(string path, BitmapImage bitmap)
+    {
+        if (cache.ContainsKey(path)) cacheOrder.Remove(path);
+
+        cache[path] = bitmap;
+        cacheOrder.AddFirst(path);
+
+        while (cache.Count > maxCached)
+        {
+            var oldest = cacheOrder.Last!.Value;
+            cacheOrder.RemoveLast();
+            cache.Remove(oldest);
+        }
+    }
+
     private static void onPathChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
         if (d is not Image image) return;
 
         if (image.GetValue(requestProperty) is Request old) old.cancelled = true;
 
-        image.Source = null;
         image.ClearValue(requestProperty);
 
         var path = e.NewValue as string;
-        if (string.IsNullOrEmpty(path)) return;
+        if (string.IsNullOrEmpty(path)) 
+        {
+            image.Source = null;
+            return;
+        }
+
+        if (fromCache(path) is {} cached)
+        {
+            image.Source = cached;
+            return;
+        }
+
+        image.Source = null;
 
         var request = new Request(image, path);
         image.SetValue(requestProperty, request);
@@ -87,7 +126,11 @@ public static class AsyncImage
                 {
                     var bitmap = await Task.Run(() => load(next.path));
 
-                    if (!next.cancelled && bitmap != null) next.image.Source = bitmap;
+                    if (bitmap != null)
+                    {
+                        addToCache(next.path, bitmap);
+                        if (!next.cancelled) next.image.Source = bitmap;
+                    }
                 }
                 catch (Exception)
                 {
