@@ -11,6 +11,7 @@ using Microsoft.EntityFrameworkCore;
 using MusicPlayer.LibraryDatabase;
 using MusicPlayer.LibraryObjects;
 using MusicPlayer.LibraryScanner;
+using MusicPlayer.Player;
 using MusicPlayer.Settings;
 
 namespace MusicPlayer;
@@ -33,6 +34,8 @@ public partial class MainWindow : Window
 
     public ObservableCollection<GridRow> Rows { get;} = new ObservableCollection<GridRow>();
 
+    public Queue queue { get;} = new();
+
     private AlbumDetail? openDetail;
     private List<Album> sortedAlbums = new();
     private int columns = 6;
@@ -42,6 +45,7 @@ public partial class MainWindow : Window
 
     private readonly SemaphoreSlim albumSync = new(1,1);
     private bool liveRefreshRunning;
+    private bool swallowUp;
 
     private const double wheelSpeed = 3.0;
 
@@ -232,8 +236,36 @@ public partial class MainWindow : Window
 
     private static string? existingFile(string? path) => path != null && File.Exists(path) ? path : null;
 
-    private async void albumTileClicked(object sender, MouseButtonEventArgs e)
+    private async void albumClickedDown(object sender, MouseButtonEventArgs e)
     {
+        if (e.ClickCount != 2)
+        {
+            swallowUp = false;
+            return;
+        }
+
+        if ((sender as FrameworkElement)?.DataContext is not Album album) return;
+
+        swallowUp = true;
+
+        try
+        {
+            await queueAlbumAsync(album);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message);
+        }
+    }
+
+    private async void albumClicked(object sender, MouseButtonEventArgs e)
+    {
+        if (swallowUp)
+        {
+            swallowUp = false;
+            return;
+        }
+
         if ((sender as FrameworkElement)?.DataContext is not Album album) return;
 
         try
@@ -247,20 +279,22 @@ public partial class MainWindow : Window
         }
     }
 
+    private async Task<List<Track>> loadTracksAsync(int albumId)
+    {
+        await using var db = MusicDatabase.CreateContext(settingsDirectory);
+
+        return await db.tracks
+            .AsNoTracking()
+            .Where(t => t.albumId == albumId)
+            .OrderBy(t => t.discNumber ?? 1)
+            .ThenBy(t => t.trackNumber ?? int.MaxValue)
+            .ThenBy(t => t.title)
+            .ToListAsync();
+    }
+
     private async Task openAlbumAsync(Album album)
     {
-        List<Track> tracks;
-
-        await using (var db = MusicDatabase.CreateContext(settingsDirectory))
-        {
-            tracks = await db.tracks
-                .AsNoTracking()
-                .Where(t => t.albumId == album.id)
-                .OrderBy(t => t.discNumber ?? 1)
-                .ThenBy(t => t.trackNumber ?? int.MaxValue)
-                .ThenBy(t => t.title)
-                .ToListAsync();
-        }
+        var tracks = await loadTracksAsync(album.id);
 
         openDetail = AlbumDetail.Build(album, tracks);
         refreshRows();
@@ -270,6 +304,13 @@ public partial class MainWindow : Window
         var row = Rows.OfType<DetailRow>().FirstOrDefault();
 
         if (row != null && albumGrid.ItemContainerGenerator.ContainerFromItem(row) is FrameworkElement panel) panel.BringIntoView();
+    }
+
+    private async Task queueAlbumAsync(Album album)
+    {
+        var tracks = await loadTracksAsync(album.id);
+
+        queue.Enqueue(tracks);
     }
 
     private void closeAlbum()
