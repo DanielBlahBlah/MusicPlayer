@@ -1,8 +1,8 @@
 # MusicPlayer
 
-##TO DO LIST:
+## TO DO LIST:
 
-###Big stuff:
+### Big stuff:
 
 Play music.
 
@@ -16,6 +16,6 @@ Also allow double clicking of any song to play the full album (starting from the
 
 Backend data stuff (play counts and whatnot)
 
-###Bugs:
+### Bugs:
 
 Small bug where on albums that have 3 columns (or more I'd assume) there is still a jiggle with the duration when you move the sidebar
