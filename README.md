@@ -1,6 +1,6 @@
 # MusicPlayer
 
-## TO DO LIST:
+## TO DO LIST
 
 ### Big stuff:
 
@@ -15,6 +15,10 @@ When double clicking an album to queue it if you're opened on a different one it
 Also allow double clicking of any song to play the full album (starting from the song being double clicked so just add all the songs to queue and then skip right to the selected one)
 
 Backend data stuff (play counts and whatnot)
+
+### Code housekeeping stuff
+
+Split MainWindow.xaml.cs into a bunch of files it should just be a central hub for all the operations it shouldn't be doing the functions itself in a perfect world
 
 ### Bugs:
 
