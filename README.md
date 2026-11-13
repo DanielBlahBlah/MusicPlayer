@@ -4,8 +4,6 @@
 
 ### Big stuff:
 
-Play music.
-
 Right click on songs to pick them individually instead of full albums only
 
 Queue management (dragging and dropping songs around to reorder, shuffle, clear)
