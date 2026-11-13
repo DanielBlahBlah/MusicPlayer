@@ -315,8 +315,6 @@ public partial class MainWindow : Window
         var tracks = await loadTracksAsync(album.id);
 
         player.Enqueue(tracks);
-
-        if (!player.isActive) MessageBox.Show(player.error ?? $"{tracks.Count}");
     }
 
     private void closeAlbum()
