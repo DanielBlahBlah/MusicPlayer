@@ -34,7 +34,8 @@ public partial class MainWindow : Window
 
     public ObservableCollection<GridRow> Rows { get;} = new ObservableCollection<GridRow>();
 
-    public Queue queue { get;} = new();
+    private readonly AudioPlayer player = new();
+    public Queue queue => player.queue;
 
     private AlbumDetail? openDetail;
     private List<Album> sortedAlbums = new();
@@ -53,6 +54,9 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         loadWindowSettings();
+
+        player.StateChanged += () => nowPlaying.Text = player.current is {} t
+            ? $"Now playing: {t.title ?? Path.GetFileNameWithoutExtension(t.filePath)}" : "";
 
         DataContext = this;
 
@@ -310,7 +314,9 @@ public partial class MainWindow : Window
     {
         var tracks = await loadTracksAsync(album.id);
 
-        queue.Enqueue(tracks);
+        player.Enqueue(tracks);
+
+        if (!player.isActive) MessageBox.Show(player.error ?? $"{tracks.Count}");
     }
 
     private void closeAlbum()
@@ -396,6 +402,7 @@ public partial class MainWindow : Window
 
     private void mainWindowClosing(object? sender, CancelEventArgs e)
     {
+        player.Stop();
         scanCts?.Cancel();
 
         var settings = new ProjectSettings

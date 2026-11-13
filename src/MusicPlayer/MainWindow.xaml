@@ -206,6 +206,9 @@
                 <Border Grid.Column = "0" Background = "#FFFFFF" Padding = "16">
                         <StackPanel>
                                 <TextBlock Text = "{Binding queue.tracks.Count, StringFormat=Queue: {0} tracks}"/>
+                                <TextBlock x:Name = "nowPlaying"
+                                        TextWrapping = "Wrap"
+                                        Margin = "0,8,0,0"/>
                                 <!--sidebar stuff-->
                         </StackPanel>
                 </Border>
