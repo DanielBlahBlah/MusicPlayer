@@ -257,7 +257,7 @@
                                 VirtualizingPanel.VirtualizationMode = "Recycling"
                                 VirtualizingPanel.ScrollUnit = "Pixel"
                                 VirtualizingPanel.CacheLengthUnit = "Item"
-                                VirtualizingPanel.CacheLength = "3"
+                                VirtualizingPanel.CacheLength = "4"
                                 ScrollViewer.CanContentScroll = "True">
  
                                 <ItemsControl.Template>

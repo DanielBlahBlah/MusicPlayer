@@ -27,13 +27,13 @@ public static class AsyncImage
     private static readonly List<Request> pending = new();
     private static bool pumping;
 
-    public const double MaxLoadingSpeed = 1000;
+    public const double MaxLoadingSpeed = 2000;
     public static readonly Stopwatch clock = Stopwatch.StartNew();
     private static double lastOffset = double.NaN;
     private static double lastReading;
     private static double scrollSpeed;
 
-    private const int maxCached = 800;
+    private const int maxCached = 100;
     private static readonly Dictionary<string, BitmapImage> cache = new(StringComparer.OrdinalIgnoreCase);
     private static readonly LinkedList<string> cacheOrder = new();
 
